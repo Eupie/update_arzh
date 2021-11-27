@@ -17,7 +17,7 @@ update.need = false
 update.thisVersion = "1.2"
 update.info_url = "https://raw.githubusercontent.com/Eupie/update_arzh/master/updateInfo.ini"
 update.info_path = getWorkingDirectory() .. "/arzh_updInfo.ini"
-update.script_url = "https://raw.githubusercontent.com/Eupie/update_arzh/master/arzh_by_eupie.lua"
+update.script_url = "https://raw.githubusercontent.com/Eupie/update_arzh/753c1b662e5972d6491612d14183c559515a2326/arzh_by_eupie.lua"
 update.script_path = thisScript().path
 local imBegin = "Arizona HELPER by Eupie " .. update.thisVersion
 --------------------------------------------------------------------------------
@@ -75,6 +75,9 @@ local configLoaded = false
 
 function main()
 	repeat wait(0) until isSampAvailable() and isSampfuncsLoaded()
+
+	downloadUrlToFile(update.info_url, update.info_path, function(id, status) if status == dlstatus.STATUS_ENDDOWNLOADDATA then lua_thread.create(updateScript) end end)
+
 	imgui.SwitchContext()
 	themes.SwitchColorTheme()
 	varclean()
@@ -85,7 +88,6 @@ function main()
 	msg("Скрипт был успешно загружен. Используйте '/arzhm', для того чтобы открыть меню")
 	repeat wait(0) until sampIsLocalPlayerSpawned()
 	sampRegisterChatCommand("arzhm", arzhm)
-	sampRegisterChatCommand("checkupd", checkupd)
 	LoadConfig()
 	repeat
 		wait(0)
@@ -798,32 +800,30 @@ function imgui.TextQuestion(label, description)
   end
 end
 
-function checkupd()
-	lua_thread.create(updateScript)
-end
-
 function updateScript()
-	downloadUrlToFile(update.info_url, update.info_path, function(id, status)
-		if status == dlstatus.STATUS_ENDDOWNLOADDATA then
-			local file = io.open(update.info_path, "r")
-			local updInf = file:read("*all")
-			io.close(file)
-			os.remove(update.info_path)
+	if not update.need then
+		repeat wait(0) until doesFileExist(update.info_path)
+		local file = io.open(update.info_path, "r")
+		local updInf = file:read("*all")
+		io.close(file)
+		os.remove(update.info_path)
 
-			local lv1, lv2 = string.match(updInf, "last_version=(%d+).(%d+)")
-			local tv1, tv2 = string.match(update.thisVersion, "(%d+).(%d+)")
+		local last_version = {}
+		local this_version = {}
 
-			if lv1 > tv1 or lv2 > tv2 then update.need = true end
-			if update.need then
-				msg("Найдено обновление до версии "..lv1.."."..lv2..", обновляю скрипт..")
-				downloadUrlToFile(update.script_url, update.script_path, function(id, status)
-					if statis == dlstatus.STATUS_ENDDOWNLOADDATA then
-						msg("Скрипт успешно обновлен, перезапускаю скрипт для работы на новой версии")
-						thisScript():reload()
-					end
-				end)
-			else msg("Вы играете с последней версией скрипта, обновление не требуется")
-			end
-		end
-	end)
+		last_version[1], last_version[2] = string.match(updInf, "last_version=(%d+).(%d+)")
+		this_version[1], this_version[2] = string.match(update.thisVersion, "(%d+).(%d+)")
+
+		if last_version[1] > this_version[1] or last_version[2] > this_version[2] then update.need = true end
+		if update.need then
+			msg("Найдено обновление до версии "..last_version[1].."."..last_version[2]..", обновляю скрипт..")
+			downloadUrlToFile(update.script_url, update.script_path, function(id, status)
+				if status == dlstatus.STATUS_ENDDOWNLOADDATA then lua_thread.create(updateScript) end
+			end)
+		else msg("Вы играете с последней версией скрипта, обновление не требуется") end
+	else
+		repeat wait(0) until doesFileExist(update.script_path)
+		msg("Скрипт успешно обновлен, перезапускаю для работы на новой версии")
+		thisScript():reload()
+	end
 end
