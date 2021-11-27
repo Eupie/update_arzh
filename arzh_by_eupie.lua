@@ -1,7 +1,6 @@
 script_name("Arizona-RP HELPER by Eupie")
 script_author("Eupie")
 
-require('lib.moonloader')
 local dlstatus = require('moonloader').download_status
 local events = require('lib.samp.events')
 local memory = require('memory')
@@ -10,19 +9,21 @@ local imgui = require('imgui')
 local encoding = require('encoding')
 encoding.default = 'CP1251'
 u8 = encoding.UTF8
-local themes = import('resource/imgui_themes.lua')
+local themes = nil
 --------------------------------------------------------------------------------
 local update = {}
-update.need = false
+update.need = 0
 update.thisVersion = "1.2"
 update.info_url = "https://raw.githubusercontent.com/Eupie/update_arzh/master/updateInfo.ini"
 update.info_path = getWorkingDirectory() .. "/arzh_updInfo.ini"
 update.script_url = "https://raw.githubusercontent.com/Eupie/update_arzh/main/arzh_by_eupie.lua"
 update.script_path = thisScript().path
-local imBegin = "Arizona HELPER by Eupie " .. update.thisVersion
+update.themes_path = getWorkingDirectory() .. "/resource/imgui_themes.lua"
+update.themes_url = "https://raw.githubusercontent.com/Eupie/update_arzh/main/imgui_themes.lua"
+local imBegin = "Arizona HELPER by Eupie v" .. update.thisVersion
 --------------------------------------------------------------------------------
 local inicfg = require('inicfg')
-local configDir = "arzh_config.ini"
+local configDir = getWorkingDirectory() .. "/config/arzh_config.ini"
 local defaultIni = {
 	settings = {
 		AutoEat = "false",
@@ -78,26 +79,35 @@ function main()
 
 	downloadUrlToFile(update.info_url, update.info_path, function(id, status) if status == dlstatus.STATUS_ENDDOWNLOADDATA then lua_thread.create(updateScript) end end)
 
+	repeat wait(0) until update.need == 228
+
 	imgui.SwitchContext()
 	themes.SwitchColorTheme()
+
 	varclean()
+
 	isActive.autologin = getConfig("settings", "AutoLogin")
 	if isActive.autologin then temp.alpass = getConfig("settings", "AL_Password") end
 	isActive.fakelauncher = getConfig("settings", "FakeLauncher")
+
 	wait(random(1000, 2000))
 	msg("Скрипт был успешно загружен. Используйте '/arzhm', для того чтобы открыть меню")
+
 	repeat wait(0) until sampIsLocalPlayerSpawned()
 	sampRegisterChatCommand("arzhm", arzhm)
 	LoadConfig()
+
 	repeat
 		wait(0)
 		if not sampIsLocalPlayerSpawned() then
 			if menuState.v then menuState.v = not menuState.v end
 			sampUnregisterChatCommand("arzhm")
 			varclean()
+
 			isActive.autologin = getConfig("settings", "AutoLogin")
 			if isActive.autologin then temp.alpass = getConfig("settings", "AL_Password") end
 			isActive.fakelauncher = getConfig("settings", "FakeLauncher")
+
 			repeat wait(0) until sampIsLocalPlayerSpawned()
 			sampRegisterChatCommand("arzhm", arzhm)
 			LoadConfig()
@@ -801,7 +811,7 @@ function imgui.TextQuestion(label, description)
 end
 
 function updateScript()
-	if not update.need then
+	if update.need == 0 then
 		repeat wait(0) until doesFileExist(update.info_path)
 		local file = io.open(update.info_path, "r")
 		local updInf = file:read("*all")
@@ -814,15 +824,38 @@ function updateScript()
 		last_version[1], last_version[2] = string.match(updInf, "last_version=(%d+).(%d+)")
 		this_version[1], this_version[2] = string.match(update.thisVersion, "(%d+).(%d+)")
 
-		if last_version[1] > this_version[1] or last_version[2] > this_version[2] then update.need = true end
-		if update.need then
+		if last_version[1] > this_version[1] or last_version[2] > this_version[2] then update.need = 1 end
+		if update.need == 1 then
 			msg("Найдено обновление до версии "..last_version[1].."."..last_version[2]..", обновляю скрипт..")
 			downloadUrlToFile(update.script_url, update.script_path, function(id, status)
 				if status == dlstatus.STATUS_ENDDOWNLOADDATA then lua_thread.create(updateScript) end
 			end)
-		else msg("Вы играете с последней версией скрипта, обновление не требуется") end
-	else
+		else
+			msg("Вы играете с последней версией скрипта, обновление не требуется")
+			if not doesFileExist(update.themes_path) then
+				msg("Не обнаружена библиотека цветовых схем, начинаю загрузку..")
+				update.need = 2
+				downloadUrlToFile(update.themes_url, update.themes_path, function(id, status)
+					if status == dlstatus.STATUS_ENDDOWNLOADDATA then lua_thread.create(updateScript) end
+				end)
+			else
+				msg("Библиотека цветовых схем присутствует, подгрузка не требуется")
+				themes = import('resource/imgui_themes.lua')
+				update.need = 228
+			end
+		end
+	elseif update.need == 1 then
 		repeat wait(0) until doesFileExist(update.script_path)
+		msg("Обновляю библиотеку цветовых схем..")
+		update.need = 3
+		downloadUrlToFile(update.themes_url, update.themes_path, function(id, status)
+			if status == dlstatus.STATUS_ENDDOWNLOADDATA then lua_thread.create(updateScript) end
+		end)
+	elseif update.need == 2 then
+		msg("Библиотека цветовых схем была успешно загружена, перезапускаю скрипт")
+		thisScript():reload()
+	elseif update.need == 3 then
+		repeat wait(0) until doesFileExist(update.update.themes_path)
 		msg("Скрипт успешно обновлен, перезапускаю для работы на новой версии")
 		thisScript():reload()
 	end
