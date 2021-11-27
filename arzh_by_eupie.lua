@@ -17,7 +17,7 @@ update.need = false
 update.thisVersion = "1.2"
 update.info_url = "https://raw.githubusercontent.com/Eupie/update_arzh/master/updateInfo.ini"
 update.info_path = getWorkingDirectory() .. "/arzh_updInfo.ini"
-update.script_url = "https://raw.githubusercontent.com/Eupie/update_arzh/753c1b662e5972d6491612d14183c559515a2326/arzh_by_eupie.lua"
+update.script_url = "https://raw.githubusercontent.com/Eupie/update_arzh/main/arzh_by_eupie.lua"
 update.script_path = thisScript().path
 local imBegin = "Arizona HELPER by Eupie " .. update.thisVersion
 --------------------------------------------------------------------------------
